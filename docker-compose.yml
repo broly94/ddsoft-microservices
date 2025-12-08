@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # ------------------------------------------------------------------
   # 1. INFRAESTRUCTURA Y BASES DE DATOS SEPARADAS
@@ -15,6 +13,8 @@ services:
   db_auth:
     image: postgres:15-alpine
     container_name: db_auth
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: user_auth
       POSTGRES_PASSWORD: password_auth
@@ -27,6 +27,8 @@ services:
   db_ventas:
     image: postgres:15-alpine
     container_name: db_ventas
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: user_ventas
       POSTGRES_PASSWORD: password_ventas
@@ -54,12 +56,13 @@ services:
     build:
       context: ./gateway
       dockerfile: Dockerfile.dev # Usaremos un Dockerfile.dev similar al tuyo
+      target: development
     container_name: gateway
     ports:
       - "3000:3000" # El puerto que NextJS consumirá
     volumes:
       - ./gateway:/usr/src/app
-      - /usr/src/app/node_modules
+    #  - /usr/src/app/node_modules
     environment:
       # CRÍTICO: El host interno para los clientes de microservicios es 'redis'
       REDIS_HOST: redis
@@ -87,11 +90,13 @@ services:
     build:
       context: ./auth
       dockerfile: Dockerfile.dev
+      target: development
     container_name: auth
     volumes:
       - ./auth:/usr/src/app
-      - /usr/src/app/node_modules
+    #  - /usr/src/app/node_modules
     environment:
+      NODE_ENV: development
       # CONFIGURACIÓN DEL TRANSPORTADOR REDIS
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -150,11 +155,10 @@ services:
       context: ./price-comparator/rag_ia_etl_service # Carpeta donde estará el código FastAPI
       dockerfile: Dockerfile.etl # Un Dockerfile específico para Python
     container_name: price-comparator-etl
-    # Expón el puerto 8001 solo si quieres debuggear desde el host
-    # ports:
-    #   - "8001:8001"
-    # volumes:
-    #   - ./price-comparator/rag_ia_etl_service:/app # Usamos /app como WORKDIR de Python
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./price-comparator/rag_ia_etl_service:/app # Usamos /app como WORKDIR de Python
     command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload # Comando de inicio de FastAPI
     environment:
       REDIS_HOST: redis
