@@ -106,6 +106,9 @@ services:
       DB_USER: user_auth
       DB_PASS: password_auth
       DB_NAME: db_auth
+      # VARIABLES PARA JWT
+      JWT_SECRET: CAMBIAME_POR_UN_SECRETO_LARGO_Y_SEGURO
+      JWT_EXPIRATION: 1d
     depends_on:
       - redis
       - db_auth
