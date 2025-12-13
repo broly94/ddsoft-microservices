@@ -173,6 +173,47 @@ services:
     networks:
       - internal_network
 
+  # ------------------------------------------------------------------
+  # 6. MICROSERVICIO GESCOM DATA ACCESS (ACL)
+  #    Se conecta al SQL Server externo de la red de la empresa.
+  # ------------------------------------------------------------------
+  gescom-data-access:
+    build:
+      context: ./gescom-data-access # ⬅️ Carpeta donde estará el código
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: gescom_service
+    volumes:
+      - ./gescom-data-access:/usr/src/app
+      # - /usr/src/app/node_modules # Descomentar si tienes problemas con node_modules
+    environment:
+      NODE_ENV: development
+      # CONFIGURACIÓN DEL TRANSPORTADOR REDIS
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # 🚨 CONFIGURACIÓN DE SQL SERVER EXTERNO (GESCOM)
+      GESCOM_DB_TYPE: mssql # o sqlserver, dependiendo del driver
+      GESCOM_DB_HOST: 192.168.100.162 # ⬅️ IP SERVIDOR
+      GESCOM_DB_PORT: 1433 # ⬅️ Puerto de SQL Server (típicamente 1433)
+      GESCOM_DB_USER: USUARIO # ⬅️ Usuario con SOLO LECTURA
+      GESCOM_DB_PASS: ""
+      GESCOM_DB_NAME: idea
+    depends_on:
+      - redis
+    networks:
+      - internal_network
+    develop:
+      watch:
+        - action: sync
+          path: ./gescom-data-access
+          target: /usr/src/app
+          ignore:
+            - node_modules/
+            - dist/
+            - .git/
+        - action: rebuild
+          path: ./gescom-data-access/package.json
+
 # ------------------------------------------------------------------
 # VOLÚMENES Y REDES
 # ------------------------------------------------------------------

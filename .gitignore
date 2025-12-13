@@ -2,4 +2,5 @@
 /gateway
 /price-comparator
 /sales
+/gescom-data-access
 .env
