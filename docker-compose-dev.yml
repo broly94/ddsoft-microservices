@@ -6,7 +6,7 @@ services:
     image: redis:7-alpine
     container_name: redis_bus
     ports:
-      - "6379:6379" # Puerto expuesto si necesitas debuggear Redis desde el host
+      - "6379:6379"
     networks:
       - internal_network
 
@@ -16,9 +16,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: user_auth
-      POSTGRES_PASSWORD: password_auth
-      POSTGRES_DB: db_auth
+      POSTGRES_USER:
+      POSTGRES_PASSWORD:
+      POSTGRES_DB:
     volumes:
       - pg_data_auth:/var/lib/postgresql/data
     networks:
@@ -30,9 +30,9 @@ services:
   #   ports:
   #     - "5432:5432"
   #   environment:
-  #     POSTGRES_USER: user_ventas
-  #     POSTGRES_PASSWORD: password_ventas
-  #     POSTGRES_DB: db_ventas
+  #     POSTGRES_USER:
+  #     POSTGRES_PASSWORD:
+  #     POSTGRES_DB:
   #   volumes:
   #     - pg_data_ventas:/var/lib/postgresql/data
   #   networks:
@@ -101,14 +101,14 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # CONFIGURACIÓN DE POSTGRES (usa el nombre del servicio 'db_auth')
-      DB_HOST: db_auth
+      DB_HOST:
       DB_PORT: 5432
-      DB_USER: user_auth
-      DB_PASS: password_auth
-      DB_NAME: db_auth
+      DB_USER:
+      DB_PASS:
+      DB_NAME:
       # VARIABLES PARA JWT
-      JWT_SECRET: CAMBIAME_POR_UN_SECRETO_LARGO_Y_SEGURO
-      JWT_EXPIRATION: 1d
+      JWT_SECRET:
+      JWT_EXPIRATION:
     depends_on:
       - redis
       - db_auth
@@ -159,29 +159,6 @@ services:
             - .git/
         - action: rebuild
           path: ./price-comparator/rag_ia_backend/package.json
-  # ------------------------------------------------------------------
-  # 5. MICROSERVICIO ETL/IA (FastAPI)
-  #    Lo dockerizamos para que la arquitectura sea consistente.
-  # ------------------------------------------------------------------
-  # price-comparator-etl:
-  #   build:
-  #     context: ./price-comparator/rag_ia_etl_service # Carpeta donde estará el código FastAPI
-  #     dockerfile: Dockerfile.etl # Un Dockerfile específico para Python
-  #   container_name: price-comparator-etl
-  #   ports:
-  #     - "8001:8001"
-  #   volumes:
-  #     - ./price-comparator/rag_ia_etl_service:/app # Usamos /app como WORKDIR de Python
-  #   command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload # Comando de inicio de FastAPI
-  #   environment:
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     QDRANT_URL: http://qdrant_db:6333
-  #   depends_on:
-  #     - redis
-  #     - qdrant_db
-  #   networks:
-  #     - internal_network
 
   # ------------------------------------------------------------------
   # 6. MICROSERVICIO INDEXER (Orquestador ETL y Qdrant)
@@ -199,7 +176,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       QDRANT_URL: http://qdrant_db:6333 # Para la carga directa
-      GOOGLE_GEMINI_API_KEY: AIzaSyAv_VXpuXTTJB9vk3iydNRRM7c-zCieMvs
+      GOOGLE_GEMINI_API_KEY:
     depends_on:
       - redis
       - qdrant_db # Dependencia lógica de Qdrant
@@ -236,19 +213,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # 🚨 CONFIGURACIÓN DE SQL SERVER EXTERNO (GESCOM)
-      GESCOM_DB_TYPE: mssql # o sqlserver, dependiendo del driver
-      GESCOM_DB_HOST: 192.168.100.162 # ⬅️ IP SERVIDOR
-      GESCOM_DB_PORT: 1433 # ⬅️ Puerto de SQL Server (típicamente 1433)
-      GESCOM_DB_USER: USUARIO # ⬅️ Usuario con SOLO LECTURA
-      GESCOM_DB_PASS: ""
-      GESCOM_DB_NAME: idea
-      # 🚨 CONFIGURACIÓN DE SQL SERVER INTERNO
-      # GESCOM_DB_TYPE: mssql # o sqlserver, dependiendo del driver
-      # GESCOM_DB_HOST: 192.168.100.186 # ⬅️ IP SERVIDOR
-      # GESCOM_DB_PORT: 1433 # ⬅️ Puerto de SQL Server (típicamente 1433)
-      # GESCOM_DB_USER: sa # ⬅️ Usuario con SOLO LECTURA
-      # GESCOM_DB_PASS: "admin123"
-      # GESCOM_DB_NAME: idea
+      GESCOM_DB_TYPE: # o sqlserver, dependiendo del driver
+      GESCOM_DB_HOST: # ⬅️ IP SERVIDOR
+      GESCOM_DB_PORT: # ⬅️ Puerto de SQL Server (típicamente 1433)
+      GESCOM_DB_USER: # ⬅️ Usuario con SOLO LECTURA
+      GESCOM_DB_PASS:
+      GESCOM_DB_NAME:
     depends_on:
       - redis
     networks:
