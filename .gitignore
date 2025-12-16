@@ -5,3 +5,4 @@
 /gescom-data-access
 .env
 docker-compose.yml
+/backup
