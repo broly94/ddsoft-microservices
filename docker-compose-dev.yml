@@ -86,17 +86,6 @@ services:
       - db_auth # Dependencia lógica por si el Guard necesita el AuthDB
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./gateway
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./gateway/package.json
   # ------------------------------------------------------------------
   # 3. MICROSERVICIO AUTH (Login y Validación JWT)
   # ------------------------------------------------------------------
@@ -128,17 +117,6 @@ services:
       - db_auth
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./auth
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./auth/package.json
   # ------------------------------------------------------------------
   # 4. MICROSERVICIO COMPARADOR (Tu proyecto refactorizado)
   #    Ahora corre como microservicio (Redis), no como HTTP.
@@ -155,25 +133,14 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      QDRANT_URL: http://qdrant_db:6333 # Accede a Qdrant por su nombre de servicio
+      QDRANT_URL: http://qdrant_db:6333
+      GOOGLE_GEMINI_API_KEY: ""
       # ETL_SERVICE_URL: Ya no es necesario si usamos Redis para comunicación asíncrona
     depends_on:
       - redis
       - qdrant_db
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./price-comparator/rag_ia_backend
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./price-comparator/rag_ia_backend/package.json
-
   # ------------------------------------------------------------------
   # 6. MICROSERVICIO INDEXER (Orquestador ETL y Qdrant)
   # ------------------------------------------------------------------
@@ -190,24 +157,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       QDRANT_URL: http://qdrant_db:6333 # Para la carga directa
-      GOOGLE_GEMINI_API_KEY:
+      GOOGLE_GEMINI_API_KEY: ""
     depends_on:
       - redis
       - qdrant_db # Dependencia lógica de Qdrant
       - gescom-data-access # Dependencia lógica del ACL
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./rag-etl-indexer
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./price-comparator/rag-etl-indexer/package.json
   # ------------------------------------------------------------------
   # 7. MICROSERVICIO GESCOM DATA ACCESS (ACL)
   #    Se conecta al SQL Server externo de la red de la empresa.
