@@ -1,8 +1,8 @@
-/auth
-/gateway
-/price-comparator
-/sales
-/gescom-data-access
-.env
-docker-compose.yml
-/backup
+# Ignorar todo el contenido
+*
+
+# Permitir el archivo .gitignore
+!.gitignore
+
+# Permitir solamente docker-compose-dev.yml
+!docker-compose-dev.yml
