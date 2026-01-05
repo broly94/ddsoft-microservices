@@ -24,20 +24,6 @@ services:
     networks:
       - internal_network
 
-  db_price-comparator:
-    image: postgres:15-alpine
-    container_name: db_price-comparator
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: 
-      POSTGRES_PASSWORD: 
-      POSTGRES_DB: 
-    volumes:
-      - pg_data_price-comparator:/var/lib/postgresql/data
-    networks:
-      - internal_network
-
   # db_ventas:
   #   image: postgres:15-alpine
   #   container_name: db_ventas

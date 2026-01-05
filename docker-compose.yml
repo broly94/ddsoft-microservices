@@ -24,6 +24,20 @@ services:
     networks:
       - internal_network
 
+  db_price-comparator:
+    image: postgres:15-alpine
+    container_name: db_price-comparator
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: user_price-comparator
+      POSTGRES_PASSWORD: password_price-comparator
+      POSTGRES_DB: db_price-comparator
+    volumes:
+      - pg_data_price-comparator:/var/lib/postgresql/data
+    networks:
+      - internal_network
+
   # db_ventas:
   #   image: postgres:15-alpine
   #   container_name: db_ventas
@@ -72,17 +86,7 @@ services:
       - db_auth # Dependencia lógica por si el Guard necesita el AuthDB
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./gateway
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./gateway/package.json
+
   # ------------------------------------------------------------------
   # 3. MICROSERVICIO AUTH (Login y Validación JWT)
   # ------------------------------------------------------------------
@@ -114,17 +118,7 @@ services:
       - db_auth
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./auth
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./auth/package.json
+
   # ------------------------------------------------------------------
   # 4. MICROSERVICIO COMPARADOR (Tu proyecto refactorizado)
   #    Ahora corre como microservicio (Redis), no como HTTP.
@@ -139,51 +133,20 @@ services:
     volumes:
       - ./price-comparator/rag_ia_backend:/usr/src/app
       - /usr/src/app/node_modules
+    ports:
+      - "3002:3002"
     environment:
       NODE_ENV: development
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      QDRANT_URL: http://qdrant_db:6333 # Accede a Qdrant por su nombre de servicio
+      QDRANT_URL: http://qdrant_db:6333
+      GOOGLE_GEMINI_API_KEY: AIzaSyDE1ypqQRbss2Axhb5R4pzLj9f3CSKjiiw
       # ETL_SERVICE_URL: Ya no es necesario si usamos Redis para comunicación asíncrona
     depends_on:
       - redis
       - qdrant_db
     networks:
       - internal_network
-    # develop:
-    #   watch:
-    #     - action: sync
-    #       path: ./price-comparator/rag_ia_backend
-    #       target: /usr/src/app
-    #       ignore:
-    #         - node_modules/
-    #         - dist/
-    #         - .git/
-    #     - action: rebuild
-    #       path: ./price-comparator/rag_ia_backend/package.json
-  # ------------------------------------------------------------------
-  # 5. MICROSERVICIO ETL/IA (FastAPI)
-  #    Lo dockerizamos para que la arquitectura sea consistente.
-  # ------------------------------------------------------------------
-  # price-comparator-etl:
-  #   build:
-  #     context: ./price-comparator/rag_ia_etl_service # Carpeta donde estará el código FastAPI
-  #     dockerfile: Dockerfile.etl # Un Dockerfile específico para Python
-  #   container_name: price-comparator-etl
-  #   ports:
-  #     - "8001:8001"
-  #   volumes:
-  #     - ./price-comparator/rag_ia_etl_service:/app # Usamos /app como WORKDIR de Python
-  #   command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload # Comando de inicio de FastAPI
-  #   environment:
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     QDRANT_URL: http://qdrant_db:6333
-  #   depends_on:
-  #     - redis
-  #     - qdrant_db
-  #   networks:
-  #     - internal_network
 
   # ------------------------------------------------------------------
   # 6. MICROSERVICIO INDEXER (Orquestador ETL y Qdrant)
@@ -208,17 +171,7 @@ services:
       - gescom-data-access # Dependencia lógica del ACL
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./rag-etl-indexer
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./price-comparator/rag-etl-indexer/package.json
+
   # ------------------------------------------------------------------
   # 7. MICROSERVICIO GESCOM DATA ACCESS (ACL)
   #    Se conecta al SQL Server externo de la red de la empresa.
@@ -255,17 +208,6 @@ services:
       - redis
     networks:
       - internal_network
-    develop:
-      watch:
-        - action: sync
-          path: ./gescom-data-access
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-            - dist/
-            - .git/
-        - action: rebuild
-          path: ./gescom-data-access/package.json
 
 # ------------------------------------------------------------------
 # VOLÚMENES Y REDES
@@ -273,6 +215,7 @@ services:
 volumes:
   pg_data_auth:
   pg_data_ventas:
+  pg_data_price-comparator:
   qdrant_data:
     driver: local
 
