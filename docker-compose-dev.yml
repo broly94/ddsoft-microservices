@@ -255,6 +255,7 @@ services:
 volumes:
   pg_data_auth:
   pg_data_ventas:
+  pg_data_price-comparator:
   qdrant_data:
     driver: local
 
