@@ -1,0 +1,246 @@
+services:
+  # ------------------------------------------------------------------
+  # 1. INFRAESTRUCTURA Y BASES DE DATOS SEPARADAS
+  # ------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: redis_bus
+    ports:
+      - "6379:6379" # Puerto expuesto si necesitas debuggear Redis desde el host
+    networks:
+      - internal_network
+
+  db_auth:
+    image: postgres:15-alpine
+    container_name: db_auth
+    ports:
+      - "${AUTH_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASS}
+      POSTGRES_DB: ${AUTH_DB_NAME}
+    volumes:
+      - pg_data_auth:/var/lib/postgresql/data
+    networks:
+      - internal_network
+
+  db_price-comparator:
+    image: postgres:15-alpine
+    container_name: db_price-comparator
+    ports:
+      - "${PRICE_COMPARATOR_DB_PORT_EXTERNAL}:${PRICE_COMPARATOR_DB_PORT_INTERNAL}"
+    environment:
+      POSTGRES_USER: ${PRICE_COMPARATOR_DB_USER}
+      POSTGRES_PASSWORD: ${PRICE_COMPARATOR_DB_PASS}
+      POSTGRES_DB: ${PRICE_COMPARATOR_DB_NAME}
+    volumes:
+      - pg_data_price-comparator:/var/lib/postgresql/data
+    networks:
+      - internal_network
+
+  # db_ventas:
+  #   image: postgres:15-alpine
+  #   container_name: db_ventas
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     POSTGRES_USER: user_ventas
+  #     POSTGRES_PASSWORD: password_ventas
+  #     POSTGRES_DB: db_ventas
+  #   volumes:
+  #     - pg_data_ventas:/var/lib/postgresql/data
+  #   networks:
+  #     - internal_network
+
+  qdrant_db:
+    image: qdrant/qdrant:latest
+    container_name: qdrant_server
+    ports:
+      - "6333:6333" # API REST (para que el host, ETL-IA y Comparador puedan acceder)
+      - "6334:6334" # API gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - internal_network
+
+  # ------------------------------------------------------------------
+  # 2. API GATEWAY (Punto de entrada HTTP)
+  # ------------------------------------------------------------------
+  gateway:
+    build:
+      context: ./microservices/gateway
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: gateway
+    ports:
+      - "${GATEWAY_PORT}:3000"
+    volumes:
+      - ./microservices/gateway:/usr/src/app
+    #  - /usr/src/app/node_modules
+    environment:
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    depends_on:
+      - redis
+      - db_auth
+    networks:
+      - internal_network
+
+  # ------------------------------------------------------------------
+  # 2.1. FRONTEND DASHBOARD (Next.js - rag_ia_dashboard)
+  # ------------------------------------------------------------------
+  rag-ia-dashboard:
+    build:
+      context: ./rag_ia_dashboard
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: rag_ia_dashboard
+    ports:
+      - "${DASHBOARD_PORT}:3001"
+    volumes:
+      - ./rag_ia_dashboard:/usr/src/app
+      - /usr/src/app/node_modules
+      - /usr/src/app/.next
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      # IMPORTANTE: NEXT_PUBLIC_* se ejecutan en el NAVEGADOR
+      # Por lo tanto deben usar la IP publica (no localhost ni nombres de servicios Docker)
+      NEXT_PUBLIC_API_URL: http://${PUBLIC_IP}:${GATEWAY_PORT}
+      NEXT_PUBLIC_BACKEND_URL: http://${PUBLIC_IP}:${GATEWAY_PORT}
+      NEXT_PUBLIC_PRICE_COMPARATOR_URL: http://${PUBLIC_IP}:${PRICE_COMPARATOR_BACKEND_PORT}
+      # Variable para WebSocket (asegura que funcione desde cualquier IP)
+      WATCHPACK_POLLING: "true"
+    depends_on:
+      - gateway
+      - price-comparator-backend
+    networks:
+      - internal_network
+
+  # ------------------------------------------------------------------
+  # 3. MICROSERVICIO AUTH (Login y Validación JWT)
+  # ------------------------------------------------------------------
+  auth:
+    build:
+      context: ./microservices/auth
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: auth
+    volumes:
+      - ./microservices/auth:/usr/src/app
+    #  - /usr/src/app/node_modules
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      # CONFIGURACIÓN DEL TRANSPORTADOR REDIS
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      # CONFIGURACIÓN DE POSTGRES (usa el nombre del servicio 'db_auth')
+      DB_HOST: db_auth
+      DB_PORT: 5432
+      DB_USER: ${AUTH_DB_USER}
+      DB_PASS: ${AUTH_DB_PASS}
+      DB_NAME: ${AUTH_DB_NAME}
+      # VARIABLES PARA JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+    depends_on:
+      - redis
+      - db_auth
+    networks:
+      - internal_network
+
+  # ------------------------------------------------------------------
+  # 4. MICROSERVICIO COMPARADOR (Tu proyecto refactorizado)
+  #    Ahora corre como microservicio (Redis), no como HTTP.
+  # ------------------------------------------------------------------
+  price-comparator-backend:
+    # image: ddsoft/price-comparator-backend:v1.0.0
+    build:
+      context: ./microservices/price-comparator/rag_ia_backend
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: price-comparator-backend
+    # Ya no necesita exponer puerto HTTP, solo se comunica por Redis.
+    volumes:
+      - ./microservices/price-comparator/rag_ia_backend:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - "${PRICE_COMPARATOR_BACKEND_PORT}:3002"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      QDRANT_URL: ${QDRANT_URL}
+      GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY}
+    depends_on:
+      - redis
+      - qdrant_db
+    networks:
+      - internal_network
+
+  # ------------------------------------------------------------------
+  # 6. MICROSERVICIO INDEXER (Orquestador ETL y Qdrant)
+  # ------------------------------------------------------------------
+  rag-etl-indexer:
+    build:
+      context: ./microservices/price-comparator/rag-etl-indexer
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: rag_etl_indexer
+    volumes:
+      - ./microservices/price-comparator/rag-etl-indexer:/usr/src/app
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      QDRANT_URL: ${QDRANT_URL}
+      GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY}
+    depends_on:
+      - redis
+      - qdrant_db
+      - gescom-data-access
+    networks:
+      - internal_network
+
+  # ------------------------------------------------------------------
+  # 7. MICROSERVICIO GESCOM DATA ACCESS (ACL)
+  #    Se conecta al SQL Server externo de la red de la empresa.
+  # ------------------------------------------------------------------
+  gescom-data-access:
+    build:
+      context: ./microservices/gescom-data-access
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: gescom_service
+    volumes:
+      - ./microservices/gescom-data-access:/usr/src/app
+      # - /usr/src/app/node_modules # Descomentar si tienes problemas con node_modules
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      # CONFIGURACIÓN DEL TRANSPORTADOR REDIS
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      # CONFIGURACIÓN DE SQL SERVER EXTERNO (GESCOM)
+      GESCOM_DB_TYPE: ${GESCOM_DB_TYPE}
+      GESCOM_DB_HOST: ${GESCOM_DB_HOST}
+      GESCOM_DB_PORT: ${GESCOM_DB_PORT}
+      GESCOM_DB_USER: ${GESCOM_DB_USER}
+      GESCOM_DB_PASS: ${GESCOM_DB_PASS}
+      GESCOM_DB_NAME: ${GESCOM_DB_NAME}
+    depends_on:
+      - redis
+    networks:
+      - internal_network
+
+# ------------------------------------------------------------------
+# VOLÚMENES Y REDES
+# ------------------------------------------------------------------
+volumes:
+  pg_data_auth:
+  pg_data_ventas:
+  pg_data_price-comparator:
+  qdrant_data:
+    driver: local
+
+networks:
+  internal_network:
+    driver: bridge
