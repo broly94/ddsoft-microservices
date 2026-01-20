@@ -80,6 +80,7 @@ services:
     environment:
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - redis
       - db_auth
@@ -110,6 +111,7 @@ services:
       NEXT_PUBLIC_PRICE_COMPARATOR_URL: http://${PUBLIC_IP}:${PRICE_COMPARATOR_BACKEND_PORT}
       # Variable para WebSocket (asegura que funcione desde cualquier IP)
       WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - gateway
       - price-comparator-backend
@@ -142,6 +144,7 @@ services:
       # VARIABLES PARA JWT
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - redis
       - db_auth
@@ -171,6 +174,7 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       QDRANT_URL: ${QDRANT_URL}
       GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY}
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - redis
       - qdrant_db
@@ -194,6 +198,7 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       QDRANT_URL: ${QDRANT_URL}
       GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY}
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - redis
       - qdrant_db
@@ -226,6 +231,7 @@ services:
       GESCOM_DB_USER: ${GESCOM_DB_USER}
       GESCOM_DB_PASS: ${GESCOM_DB_PASS}
       GESCOM_DB_NAME: ${GESCOM_DB_NAME}
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - redis
     networks:
