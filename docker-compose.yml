@@ -38,19 +38,52 @@ services:
     networks:
       - internal_network
 
-  # db_ventas:
-  #   image: postgres:15-alpine
-  #   container_name: db_ventas
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     POSTGRES_USER: user_ventas
-  #     POSTGRES_PASSWORD: password_ventas
-  #     POSTGRES_DB: db_ventas
-  #   volumes:
-  #     - pg_data_ventas:/var/lib/postgresql/data
-  #   networks:
-  #     - internal_network
+  db_sales:
+    image: postgres:15-alpine
+    container_name: db_sales
+    ports:
+      - "${SALES_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${SALES_DB_USER}
+      POSTGRES_PASSWORD: ${SALES_DB_PASS}
+      POSTGRES_DB: ${SALES_DB_NAME}
+    volumes:
+      - pg_data_sales:/var/lib/postgresql/data
+    networks:
+      - internal_network
+
+  db_purchases:
+    image: postgres:15-alpine
+    container_name: db_purchases
+    ports:
+      - "${PURCHASES_DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${PURCHASES_DB_USER}
+      POSTGRES_PASSWORD: ${PURCHASES_DB_PASS}
+      POSTGRES_DB: ${PURCHASES_DB_NAME}
+    volumes:
+      - pg_data_purchases:/var/lib/postgresql/data
+    networks:
+      - internal_network
+
+  sales-service:
+    build:
+      context: ./microservices/sales
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: sales_service
+    volumes:
+      - ./microservices/sales:/app
+    ports:
+      - "${SALES_ROUTE_VALIDATOR_PORT}:8000"
+    environment:
+      DATABASE_URL: postgresql://${SALES_DB_USER}:${SALES_DB_PASS}@db_sales:5432/${SALES_DB_NAME}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    depends_on:
+      - db_sales
+    networks:
+      - internal_network
 
   qdrant_db:
     image: qdrant/qdrant:latest
@@ -237,12 +270,43 @@ services:
     networks:
       - internal_network
 
+  # ------------------------------------------------------------------
+  # 8. MICROSERVICIO PURCHASES (Compras)
+  # ------------------------------------------------------------------
+  purchases:
+    build:
+      context: ./microservices/purchases
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: purchases
+    volumes:
+      - ./microservices/purchases:/usr/src/app
+    ports:
+      - "${PURCHASES_PORT}:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      DB_HOST: db_purchases
+      DB_PORT: 5432
+      DB_USER: ${PURCHASES_DB_USER}
+      DB_PASS: ${PURCHASES_DB_PASS}
+      DB_NAME: ${PURCHASES_DB_NAME}
+      PORT: 3000
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      - redis
+      - db_purchases
+    networks:
+      - internal_network
+
 # ------------------------------------------------------------------
 # VOLÚMENES Y REDES
 # ------------------------------------------------------------------
 volumes:
   pg_data_auth:
-  pg_data_ventas:
+  pg_data_sales:
+  pg_data_purchases:
   pg_data_price-comparator:
   qdrant_data:
     driver: local
