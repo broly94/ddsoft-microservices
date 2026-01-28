@@ -6,7 +6,7 @@ services:
     image: redis:7-alpine
     container_name: redis_bus
     ports:
-      - "6379:6379" # Puerto expuesto si necesitas debuggear Redis desde el host
+      - "6379:6379"
     networks:
       - internal_network
 
@@ -89,16 +89,13 @@ services:
     image: qdrant/qdrant:latest
     container_name: qdrant_server
     ports:
-      - "6333:6333" # API REST (para que el host, ETL-IA y Comparador puedan acceder)
-      - "6334:6334" # API gRPC
+      - "6333:6333" 
+      - "6334:6334" 
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 2. API GATEWAY (Punto de entrada HTTP)
-  # ------------------------------------------------------------------
   gateway:
     build:
       context: ./microservices/gateway
@@ -120,9 +117,6 @@ services:
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 2.1. FRONTEND DASHBOARD (Next.js - rag_ia_dashboard)
-  # ------------------------------------------------------------------
   rag-ia-dashboard:
     build:
       context: ./rag_ia_dashboard
@@ -151,9 +145,6 @@ services:
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 3. MICROSERVICIO AUTH (Login y Validación JWT)
-  # ------------------------------------------------------------------
   auth:
     build:
       context: ./microservices/auth
@@ -162,13 +153,10 @@ services:
     container_name: auth
     volumes:
       - ./microservices/auth:/usr/src/app
-    #  - /usr/src/app/node_modules
     environment:
       NODE_ENV: ${NODE_ENV}
-      # CONFIGURACIÓN DEL TRANSPORTADOR REDIS
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
-      # CONFIGURACIÓN DE POSTGRES (usa el nombre del servicio 'db_auth')
       DB_HOST: db_auth
       DB_PORT: 5432
       DB_USER: ${AUTH_DB_USER}
@@ -184,18 +172,12 @@ services:
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 4. MICROSERVICIO COMPARADOR (Tu proyecto refactorizado)
-  #    Ahora corre como microservicio (Redis), no como HTTP.
-  # ------------------------------------------------------------------
   price-comparator-backend:
-    # image: ddsoft/price-comparator-backend:v1.0.0
     build:
       context: ./microservices/price-comparator/rag_ia_backend
       dockerfile: Dockerfile.dev
       target: development
     container_name: price-comparator-backend
-    # Ya no necesita exponer puerto HTTP, solo se comunica por Redis.
     volumes:
       - ./microservices/price-comparator/rag_ia_backend:/usr/src/app
       - /usr/src/app/node_modules
@@ -214,9 +196,6 @@ services:
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 6. MICROSERVICIO INDEXER (Orquestador ETL y Qdrant)
-  # ------------------------------------------------------------------
   rag-etl-indexer:
     build:
       context: ./microservices/price-comparator/rag-etl-indexer
@@ -239,10 +218,6 @@ services:
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 7. MICROSERVICIO GESCOM DATA ACCESS (ACL)
-  #    Se conecta al SQL Server externo de la red de la empresa.
-  # ------------------------------------------------------------------
   gescom-data-access:
     build:
       context: ./microservices/gescom-data-access
@@ -270,9 +245,6 @@ services:
     networks:
       - internal_network
 
-  # ------------------------------------------------------------------
-  # 8. MICROSERVICIO PURCHASES (Compras)
-  # ------------------------------------------------------------------
   purchases:
     build:
       context: ./microservices/purchases
@@ -300,9 +272,6 @@ services:
     networks:
       - internal_network
 
-# ------------------------------------------------------------------
-# VOLÚMENES Y REDES
-# ------------------------------------------------------------------
 volumes:
   pg_data_auth:
   pg_data_sales:
